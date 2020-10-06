@@ -909,6 +909,7 @@ class moadminModel
                 if ($this->count > 2) {
                     $opts2['skip'] = min($this->count, 100) - 1;
                 }
+                $opts2['limit'] = 1;
                 $curLast = $col->find(array(), $opts2);
 
                 $this->colKeys = array_merge($this->colKeys, phpMoAdmin::getArrayKeys((array )$curLast->
