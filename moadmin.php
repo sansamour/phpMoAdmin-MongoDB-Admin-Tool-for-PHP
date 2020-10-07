@@ -881,7 +881,7 @@ class moadminModel
                     if ($this->count <= $_GET['skip']) {
                         $_GET['skip'] = ($this->count - $_SESSION['limit']);
                     }
-                    $opts['skip'] = $_GET['skip'];
+                    $opts['skip'] = $_GET['skip']-0;
                 }
             } else
                 if ($this->count) { // results exist but are fewer than per-page limit
