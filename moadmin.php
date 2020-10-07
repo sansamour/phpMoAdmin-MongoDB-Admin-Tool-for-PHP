@@ -1010,28 +1010,49 @@ class moadminModel
         $coll = $this->mongo->selectCollection($collection);
         switch ($importMethod) {
             case 'batchInsert':
-                foreach ($data as &$obj) {
-                    $obj = unserialize($obj);
-                }
-                $coll->$importMethod($data);
+                if ($this->extension == 'mongo'){   
+                    foreach ($data as &$obj) {
+                        $obj = unserialize($obj);
+                    }
+                    $coll->$importMethod($data);
+                }else{
+                    try{
+                        $coll->insertMany($data);
+                    }catch(Exception $e){}
+                } 
                 break;
             case 'update':
                 foreach ($data as $obj) {
-                    $obj = unserialize($obj);
+                    if ($this->extension == 'mongo')
+                        $obj = unserialize($obj);
                     if (is_object($obj) && property_exists($obj, '_id')) {
                         $_id = $obj->_id;
-                    } else
-                        if (is_array($obj) && isset($obj['_id'])) {
-                            $_id = $obj['_id'];
-                        } else {
-                            continue;
-                        }
+                    } elseif (is_array($obj) && isset($obj['_id'])) {
+                        $_id = $obj['_id'];
+                    } else {
+                        continue;
+                    }
+                    if ($this->extension == 'mongo')
                         $coll->$importMethod(array('_id' => $_id), $obj);
+                    else
+                        $coll->updateOne(array('_id' => $_id), array('$set'=>$obj));
                 }
                 break;
             default: //insert & save
                 foreach ($data as $obj) {
-                    $coll->$importMethod(unserialize($obj));
+                    if ($this->extension == 'mongo')
+                        $coll->$importMethod(unserialize($obj));
+                    else{
+                        if (is_object($obj) && property_exists($obj, '_id')) {
+                            $_id = $obj->_id;
+                            $coll->replaceOne(array('_id' => $_id),(array) $obj);
+                        } elseif (is_array($obj) && isset($obj['_id'])) {
+                            $_id = $obj['_id'];
+                            $coll->replaceOne(array('_id' => $_id),$obj);
+                        } else {
+                            $coll->insertOne($obj);
+                        }                        
+                    }                        
                 }
                 break;
         }
@@ -1089,7 +1110,11 @@ class moadminComponent
 
         if (isset($_FILES['import']) && is_uploaded_file($_FILES['import']['tmp_name']) &&
             isset($_GET['collection'])) {
-            $data = json_decode(file_get_contents($_FILES['import']['tmp_name']));
+            $data = file_get_contents($_FILES['import']['tmp_name']);    
+            if (self::$model->extension == 'mongo')    
+                $data = json_decode($data);
+            else
+                $data = (array) MongoDB\BSON\toPHP($data);
             self::$model->import($_GET['collection'], $data, $_POST['importmethod']);
         }
 
@@ -2436,13 +2461,22 @@ if ($isAuthenticated) {
     if (isset($_GET['export']) && isset($mo->mongo['listRows'])) {
         $rows = array();
         foreach ($mo->mongo['listRows'] as $row) {
-            $rows[] = serialize($row);
+            if (moadminComponent::$model->extension == 'mongo')
+                $rows[] = serialize($row);
+            else
+                $rows[] = $row;
         }
         $filename = get::htmlentities($_GET['db']);
         if (isset($_GET['collection'])) {
             $filename .= '~' . get::htmlentities($_GET['collection']);
+        }        
+        if (moadminComponent::$model->extension == 'mongodb'){
+            $rows = MongoDB\BSON\fromPHP($rows);
+            $filename .= '.bson';
+        }else{
+            $filename .= '.json';
         }
-        $filename .= '.json';
+            
         get::helper('json')->echoJson($rows, $filename);
         exit(0);
     }
