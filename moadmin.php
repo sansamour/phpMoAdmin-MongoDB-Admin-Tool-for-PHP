@@ -956,7 +956,7 @@ class moadminModel
     {
         //var_dump($collection, $_id, $idtype,$this->_unserialize($_id, $idtype));die();
         if ($this->extension == 'mongo')
-            $this->mongo->selectCollection($collection)->remove(array('_id' => $this->
+            return $this->mongo->selectCollection($collection)->remove(array('_id' => $this->
                     _unserialize($_id, $idtype)));
         $this->mongo->selectCollection($collection)->deleteOne(array('_id' => $this->
                 _unserialize($_id, $idtype)));
